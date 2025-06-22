@@ -1,96 +1,41 @@
-#Import libraries
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
+#prompt: CREDIT CARD FRAUD
+#DETECTION
+#Build a model to detect fraudulent credit card transactions. Use a
+#dataset containing information about credit card transactions, and
+#experiment with algorithms like Logistic Regression  to classify transactions as fraudulent or legitimate.
 
+!pip install scikit-learn pandas numpy
+
+import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, roc_curve
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+try:
+    df = pd.read_csv('creditcard.csv')
+except FileNotFoundError:
+    print("Dataset not found. Please upload 'creditcard.csv' or provide the correct path.")
+    exit()
 
-# Load dataset
-df = pd.read_csv("creditcard.csv")
-
-# Data overview
-print("Dataset shape:", df.shape)
-print(df['Class'].value_counts())
-
-# Optional: Plot class distribution
-sns.countplot(x='Class', data=df)
-plt.title('Class Distribution (0 = Legit, 1 = Fraud)')
-plt.show()
-
-# Drop 'Time' feature, define features (X) and target (y)
-X = df.drop(['Class', 'Time'], axis=1)
+#Separate features (X) and target (y)
+X = df.drop('Class', axis=1)
 y = df['Class']
 
-# Train-test split with stratification
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.3, stratify=y, random_state=42
-)
+#Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
-# =============================
-# 1. Logistic Regression
-# =============================
-lr = LogisticRegression(max_iter=1000, class_weight='balanced')
-lr.fit(X_train, y_train)
-y_pred_lr = lr.predict(X_test)
-y_proba_lr = lr.predict_proba(X_test)[:, 1]
+#Train a Logistic Regression model
+model = LogisticRegression(solver='liblinear', random_state=42) # Using liblinear for smaller datasets
+model.fit(X_train, y_train)
 
-print("\n--- Logistic Regression Report ---")
-print(classification_report(y_test, y_pred_lr))
+#Predict on the test set
+y_pred = model.predict(X_test)
 
-# =============================
-# 2. Decision Tree
-# =============================
-dt = DecisionTreeClassifier(random_state=42, class_weight='balanced')
-dt.fit(X_train, y_train)
-y_pred_dt = dt.predict(X_test)
-y_proba_dt = dt.predict_proba(X_test)[:, 1]
+#Evaluate the model
+print("Confusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
 
-print("\n--- Decision Tree Report ---")
-print(classification_report(y_test, y_pred_dt))
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred))
 
-# =============================
-# 3. Random Forest
-# =============================
-rf = RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced')
-rf.fit(X_train, y_train)
-y_pred_rf = rf.predict(X_test)
-y_proba_rf = rf.predict_proba(X_test)[:, 1]
-
-print("\n--- Random Forest Report ---")
-print(classification_report(y_test, y_pred_rf))
-
-# =============================
-# ROC-AUC Scores
-# =============================
-auc_lr = roc_auc_score(y_test, y_proba_lr)
-auc_dt = roc_auc_score(y_test, y_proba_dt)
-auc_rf = roc_auc_score(y_test, y_proba_rf)
-
-print(f"\nAUC Logistic Regression: {auc_lr:.4f}")
-print(f"AUC Decision Tree:       {auc_dt:.4f}")
-print(f"AUC Random Forest:       {auc_rf:.4f}")
-
-# =============================
-# Plot ROC Curves
-# =============================
-fpr_lr, tpr_lr, _ = roc_curve(y_test, y_proba_lr)
-fpr_dt, tpr_dt, _ = roc_curve(y_test, y_proba_dt)
-fpr_rf, tpr_rf, _ = roc_curve(y_test, y_proba_rf)
-
-plt.figure(figsize=(10, 6))
-plt.plot(fpr_lr, tpr_lr, label=f"Logistic Regression (AUC = {auc_lr:.2f})")
-plt.plot(fpr_dt, tpr_dt, label=f"Decision Tree (AUC = {auc_dt:.2f})")
-plt.plot(fpr_rf, tpr_rf, label=f"Random Forest (AUC = {auc_rf:.2f})")
-plt.plot([0, 1], [0, 1], linestyle='--', color='gray')
-
-plt.title('ROC Curve Comparison')
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.legend()
-plt.grid(True)
-plt.show()
+print("\nAccuracy Score:")
+print(accuracy_score(y_test, y_pred))
