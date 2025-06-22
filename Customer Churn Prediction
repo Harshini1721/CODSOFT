@@ -1,75 +1,80 @@
-!pip install scikit-learn pandas
+#prompt: CUSTOMER CHURN PREDICTION
+#Develop a model to predict customer churn for a subscription-
+#based service or business. Use historical customer data, including
+#features like usage behavior and customer demographics, and try
+#algorithms like Logistic Regression to predict churn.
 
 import pandas as pd
-import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.preprocessing import StandardScaler
+
+#Load the dataset (replace 'your_churn_data.csv' with the actual filename)
+#Assuming your data is in a CSV file
 try:
-    df = pd.read_csv('customer_data.csv')
+  df = pd.read_csv('your_churn_data.csv')
 except FileNotFoundError:
-    print("Error: 'customer_data.csv' not found. Please upload the file or provide the correct path.")
-    # Create a dummy dataframe for demonstration if the file is not found
-    data = {
-        'customer_id': range(100),
-        'age': np.random.randint(20, 60, 100),
-        'monthly_charges': np.random.uniform(20, 100, 100),
-        'total_charges': np.random.uniform(100, 2000, 100),
-        'contract_type': np.random.choice(['Month-to-month', 'One year', 'Two year'], 100),
-        'internet_service': np.random.choice(['DSL', 'Fiber optic', 'No'], 100),
-        'usage_minutes': np.random.randint(50, 1000, 100),
-        'Churn': np.random.randint(0, 2, 100) # 1 for churn, 0 for no churn
-    }
-    df = pd.DataFrame(data)
-    print("Created a dummy dataset for demonstration.")
+  print("Please upload 'your_churn_data.csv' to your Colab environment.")
+  # Create a dummy dataset for demonstration if the file is not found
+  print("Creating a dummy dataset for demonstration.")
+  data = {
+      'customer_id': range(1000),
+      'age': np.random.randint(18, 70, 1000),
+      'gender': np.random.choice(['Male', 'Female'], 1000),
+      'monthly_charges': np.random.uniform(20, 120, 1000),
+      'total_charges': np.random.uniform(50, 5000, 1000),
+      'contract_type': np.random.choice(['Month-to-month', 'One year', 'Two year'], 1000),
+      'internet_service': np.random.choice(['DSL', 'Fiber optic', 'No'], 1000),
+      'churn': np.random.choice([0, 1], 1000, p=[0.7, 0.3]) # 0 for not churned, 1 for churned
+  }
+  df = pd.DataFrame(data)
+  df['total_charges'] = df['total_charges'].astype(str) # Simulate some non-numeric data
+  df.loc[df.sample(frac=0.02).index, 'total_charges'] = ' ' # Introduce some empty strings
+  df.to_csv('your_churn_data.csv', index=False)
+  print("Dummy 'your_churn_data.csv' created.")
+  df = pd.read_csv('your_churn_data.csv')
 
-# Preprocessing: Handle categorical features and potential missing values
-# For simplicity, we'll use one-hot encoding for categorical features
-df = pd.get_dummies(df, columns=['contract_type', 'internet_service'], drop_first=True)
 
-# Assume 'total_charges' might have missing values (e.g., for new customers)
-# We'll fill missing values with the mean for simplicity
-df['total_charges'] = df['total_charges'].fillna(df['total_charges'].mean())
+#Data Preprocessing
+#Handle missing values (if any). A common approach is to drop rows or impute.
+df.dropna(inplace=True)
 
-# Define features (X) and target (y)
-# Exclude customer_id and the original categorical columns
-X = df.drop(['customer_id', 'Churn'], axis=1)
-y = df['Churn']
+#Convert 'Total Charges' to numeric, coercing errors to NaN and then dropping NaNs
+df['total_charges'] = pd.to_numeric(df['total_charges'], errors='coerce')
+df.dropna(inplace=True)
 
-# Split data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Train and evaluate Logistic Regression model
-print("Training Logistic Regression...")
-log_reg = LogisticRegression(solver='liblinear') # Use a solver that works well with smaller datasets
-log_reg.fit(X_train, y_train)
-y_pred_log_reg = log_reg.predict(X_test)
+#Convert categorical features to dummy variables
+categorical_cols = ['gender', 'contract_type', 'internet_service'] # Add other categorical columns here
+df = pd.get_dummies(df, columns=categorical_cols, drop_first=True)
 
-print("\nLogistic Regression Results:")
-print("Accuracy:", accuracy_score(y_test, y_pred_log_reg))
-print("Classification Report:\n", classification_report(y_test, y_pred_log_reg))
-print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred_log_reg))
+#Define features (X) and target (y)
+#Exclude the customer_id column and the original categorical columns if they weren't dropped
+X = df.drop(['customer_id', 'churn'], axis=1)
+y = df['churn']
 
-# Train and evaluate Random Forest model
-print("\nTraining Random Forest...")
-rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
-rf_model.fit(X_train, y_train)
-y_pred_rf = rf_model.predict(X_test)
+#Scale numerical features
+numerical_cols = ['age', 'monthly_charges', 'total_charges'] # Add other numerical columns here
+scaler = StandardScaler()
+X[numerical_cols] = scaler.fit_transform(X[numerical_cols])
 
-print("\nRandom Forest Results:")
-print("Accuracy:", accuracy_score(y_test, y_pred_rf))
-print("Classification Report:\n", classification_report(y_test, y_pred_rf))
-print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred_rf))
 
-# Train and evaluate Gradient Boosting model
-print("\nTraining Gradient Boosting...")
-gb_model = GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, max_depth=3, random_state=42)
-gb_model.fit(X_train, y_train)
-y_pred_gb = gb_model.predict(X_test)
+#Split data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
-print("\nGradient Boosting Results:")
-print("Accuracy:", accuracy_score(y_test, y_pred_gb))
-print("Classification Report:\n", classification_report(y_test, y_pred_gb))
-print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred_gb))
+#Model Training (Logistic Regression)
+model = LogisticRegression(random_state=42)
+model.fit(X_train, y_train)
 
+#Model Evaluation
+y_pred = model.predict(X_test)
+
+print("Classification Report:")
+print(classification_report(y_test, y_pred))
+
+print("\nConfusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
+
+print("\nAccuracy Score:")
+print(accuracy_score(y_test, y_pred))
