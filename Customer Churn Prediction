@@ -1,112 +1,75 @@
-#Import libraries
+!pip install scikit-learn pandas
+
 import pandas as pd
 import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
-
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, roc_curve
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+try:
+    df = pd.read_csv('customer_data.csv')
+except FileNotFoundError:
+    print("Error: 'customer_data.csv' not found. Please upload the file or provide the correct path.")
+    # Create a dummy dataframe for demonstration if the file is not found
+    data = {
+        'customer_id': range(100),
+        'age': np.random.randint(20, 60, 100),
+        'monthly_charges': np.random.uniform(20, 100, 100),
+        'total_charges': np.random.uniform(100, 2000, 100),
+        'contract_type': np.random.choice(['Month-to-month', 'One year', 'Two year'], 100),
+        'internet_service': np.random.choice(['DSL', 'Fiber optic', 'No'], 100),
+        'usage_minutes': np.random.randint(50, 1000, 100),
+        'Churn': np.random.randint(0, 2, 100) # 1 for churn, 0 for no churn
+    }
+    df = pd.DataFrame(data)
+    print("Created a dummy dataset for demonstration.")
 
-# Load dataset
-df = pd.read_csv('WA_Fn-UseC_-Telco-Customer-Churn.csv')
+# Preprocessing: Handle categorical features and potential missing values
+# For simplicity, we'll use one-hot encoding for categorical features
+df = pd.get_dummies(df, columns=['contract_type', 'internet_service'], drop_first=True)
 
-# Data overview
-print("Data shape:", df.shape)
-print(df['Churn'].value_counts())
+# Assume 'total_charges' might have missing values (e.g., for new customers)
+# We'll fill missing values with the mean for simplicity
+df['total_charges'] = df['total_charges'].fillna(df['total_charges'].mean())
 
-# Drop customerID (not useful)
-df.drop('customerID', axis=1, inplace=True)
-
-# Handle missing values
-df['TotalCharges'] = pd.to_numeric(df['TotalCharges'], errors='coerce')
-df['TotalCharges'].fillna(df['TotalCharges'].median(), inplace=True)
-
-# Convert categorical variables
-cat_cols = df.select_dtypes(include='object').columns
-
-# Encode target variable
-df['Churn'] = df['Churn'].map({'Yes': 1, 'No': 0})
-
-# Encode all other categorical variables
-df = pd.get_dummies(df, drop_first=True)
-
-# Features and target
-X = df.drop('Churn', axis=1)
+# Define features (X) and target (y)
+# Exclude customer_id and the original categorical columns
+X = df.drop(['customer_id', 'Churn'], axis=1)
 y = df['Churn']
 
-# Scale numerical features
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
+# Split data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Train-test split
-X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, 
-                                                    test_size=0.3, 
-                                                    stratify=y, 
-                                                    random_state=42)
+# Train and evaluate Logistic Regression model
+print("Training Logistic Regression...")
+log_reg = LogisticRegression(solver='liblinear') # Use a solver that works well with smaller datasets
+log_reg.fit(X_train, y_train)
+y_pred_log_reg = log_reg.predict(X_test)
 
-# =============================
-# 1. Logistic Regression
-# =============================
-lr = LogisticRegression(max_iter=1000)
-lr.fit(X_train, y_train)
-y_pred_lr = lr.predict(X_test)
-y_proba_lr = lr.predict_proba(X_test)[:, 1]
+print("\nLogistic Regression Results:")
+print("Accuracy:", accuracy_score(y_test, y_pred_log_reg))
+print("Classification Report:\n", classification_report(y_test, y_pred_log_reg))
+print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred_log_reg))
 
-print("\n--- Logistic Regression Report ---")
-print(classification_report(y_test, y_pred_lr))
+# Train and evaluate Random Forest model
+print("\nTraining Random Forest...")
+rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
+rf_model.fit(X_train, y_train)
+y_pred_rf = rf_model.predict(X_test)
 
-# =============================
-# 2. Random Forest
-# =============================
-rf = RandomForestClassifier(n_estimators=100, random_state=42)
-rf.fit(X_train, y_train)
-y_pred_rf = rf.predict(X_test)
-y_proba_rf = rf.predict_proba(X_test)[:, 1]
+print("\nRandom Forest Results:")
+print("Accuracy:", accuracy_score(y_test, y_pred_rf))
+print("Classification Report:\n", classification_report(y_test, y_pred_rf))
+print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred_rf))
 
-print("\n--- Random Forest Report ---")
-print(classification_report(y_test, y_pred_rf))
+# Train and evaluate Gradient Boosting model
+print("\nTraining Gradient Boosting...")
+gb_model = GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, max_depth=3, random_state=42)
+gb_model.fit(X_train, y_train)
+y_pred_gb = gb_model.predict(X_test)
 
-# =============================
-# 3. Gradient Boosting
-# =============================
-gb = GradientBoostingClassifier(n_estimators=100, random_state=42)
-gb.fit(X_train, y_train)
-y_pred_gb = gb.predict(X_test)
-y_proba_gb = gb.predict_proba(X_test)[:, 1]
+print("\nGradient Boosting Results:")
+print("Accuracy:", accuracy_score(y_test, y_pred_gb))
+print("Classification Report:\n", classification_report(y_test, y_pred_gb))
+print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred_gb))
 
-print("\n--- Gradient Boosting Report ---")
-print(classification_report(y_test, y_pred_gb))
-
-# =============================
-# ROC-AUC Scores
-# =============================
-auc_lr = roc_auc_score(y_test, y_proba_lr)
-auc_rf = roc_auc_score(y_test, y_proba_rf)
-auc_gb = roc_auc_score(y_test, y_proba_gb)
-
-print(f"\nAUC Logistic Regression: {auc_lr:.4f}")
-print(f"AUC Random Forest:       {auc_rf:.4f}")
-print(f"AUC Gradient Boosting:   {auc_gb:.4f}")
-
-# =============================
-# Plot ROC Curves
-# =============================
-fpr_lr, tpr_lr, _ = roc_curve(y_test, y_proba_lr)
-fpr_rf, tpr_rf, _ = roc_curve(y_test, y_proba_rf)
-fpr_gb, tpr_gb, _ = roc_curve(y_test, y_proba_gb)
-
-plt.figure(figsize=(10, 6))
-plt.plot(fpr_lr, tpr_lr, label=f"Logistic Regression (AUC = {auc_lr:.2f})")
-plt.plot(fpr_rf, tpr_rf, label=f"Random Forest (AUC = {auc_rf:.2f})")
-plt.plot(fpr_gb, tpr_gb, label=f"Gradient Boosting (AUC = {auc_gb:.2f})")
-plt.plot([0, 1], [0, 1], linestyle='--', color='gray')
-
-plt.title('ROC Curve Comparison')
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.legend()
-plt.grid(True)
-plt.show()
